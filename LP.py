@@ -6,13 +6,18 @@
 import numpy as np 
 import scipy.io as scio
 import os
-
-#Define initinity
-_INF = float("inf")
-_NEGINF = -1*float("inf")
+import scipy.optimize as opt
+import scipy.sparse as sparse
 
 
-# Store the Linear Program
+'''
+	Read the LP in the following form:
+	
+	min c^T x 
+	s.t Ax = b 
+		x<= hi 
+		x>= lo
+'''
 class LP():
 
 	'''
@@ -39,16 +44,27 @@ class LP():
 	def __init__(self, base_dir, mtrx_name = "lp_agg"):
 		self.base_dir = base_dir
 		self.mtrx_name ='lp_agg'
-		self.A = self.mtrx_read('')
+		self.A = sparse.csc_matrix(self.mtrx_read(''))
 		self.b = self.mtrx_read('_b')
 		self.c = self.mtrx_read('_c')
 		self.hi = self.mtrx_read('_hi')
 		self.lo = self.mtrx_read('_lo')
 
+		self.shape = self.A.shape
+
 	def mtrx_read(self,suff):
 		path = os.path.join(self.base_dir,self.mtrx_name,self.mtrx_name + suff + '.mtx')
 		return scio.mmread(path)
 
+	'''
+		Solve the LP using scipy.optimize.linprog
 
-if __name__ == "__main__":
-	myLP = LP(base_dir = os.path.join(os.environ['HOME'],'InteriorPointMethods','data'), mtrx_name = 'data')
+		NOTE:
+		scipy.optimize.linprog doesn't work with sparse matrices. Convert to dense to check the result
+
+	'''
+	def solve(self):
+		bounds = np.column_stack((self.lo,self.hi))
+		res = opt.linprog(np.reshape(self.c,(self.c.shape[0])),A_eq = self.A.todense(),b_eq=self.b,method='interior point',options={"disp": True})
+
+		return res
