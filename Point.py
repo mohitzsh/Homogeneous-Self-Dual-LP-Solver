@@ -9,6 +9,8 @@ import numpy as np
 	For Homogeneous Linear Feasibility model (HFM) a point represents a tuple (x,tau,y,s,kappa)
 
 	If initial point is not specified, assign default (e,1,0,e,1)
+
+	Point Class checks the strict feasibility of all the points
 '''
 class Point:
 

@@ -7,12 +7,18 @@ import numpy as np
 import numpy.linalg as linalg
 import scipy.sparse as sparse
 from SymmetricSystemSolver import SymmetricSystemSolver
+from Step import Step
+
 '''
 	For a system of non-linear equations, return the newton step.
 '''
 class NewtonStep:
 
-	def __init__(self,LP,curr_pt,eta,gamma):
+	def __init__(self,LP,curr_pt,eta,gamma,residual_step=None):
+
+		self.step = Step()
+
+
 		self.LP = LP
 		self.curr_pt = curr_pt
 
@@ -20,11 +26,6 @@ class NewtonStep:
 		self.eta = eta
 		self.gamma = gamma
 
-		self._dx = None
-		self._dy = None
-		self._ds = None
-		self._dtau = None
-		self._dkappa = None
 
 
 		# Residuals at current point
@@ -40,28 +41,12 @@ class NewtonStep:
 		self.r_xs = np.dot(-1*np.diag(self.curr_pt.x.transpose()[0]),self.curr_pt.s) + self.gamma*self.mu*np.ones((self.LP.shape[1],1))
 		self.r_tk = -1*self.curr_pt.tau*self.curr_pt.kappa + self.gamma*self.mu
 
+		# Add the residual term
+		self.r_xs = self.r_xs + np.dot(np.diag(residual_step.dx.transpose()[0]),residual_step.ds) if residual_step is not None else self.r_xs
+		self.r_tk = self.r_tk + residual_step.dtau* residual_step.dkappa if residual_step is not None else self.r_tk 
+
 		# This functions calculates all the steps and assign them to class variables
 		self.compute_step()
-
-	@property
-	def dx(self):
-		return self._dx
-
-	@property 
-	def dy(self):
-		return self._dy
-
-	@property
-	def ds(self):
-		return self._ds
-
-	@property
-	def dtau(self):
-		return self._dtau
-
-	@property
-	def dkappa(self):
-		return self._dkappa
 
 	'''
 
@@ -107,15 +92,15 @@ class NewtonStep:
 
 		d_tau = num / den
 
-		self._dtau = d_tau
+		self.step.dtau = d_tau
 
 	def calculate_primal_steps(self,sol1,sol2):
 
 		dx = sol2.u + sol1.u*self._dtau
 		dy = sol2.v + sol1.v*self._dtau
 
-		self._dx = dx
-		self._dy = dy
+		self.step.dx = dx
+		self.step.dy = dy
 
 	def calculate_dual_steps(self,sol1,sol2):
 		X = np.diag(self.curr_pt.x.transpose()[0])
@@ -126,5 +111,5 @@ class NewtonStep:
 		ds = np.dot(X_inv,(self.r_xs - np.dot(S,self._dx)))
 		dkappa = (self.r_tk - self.curr_pt.kappa*self._dtau)/self.curr_pt.tau
 
-		self._ds = ds
-		self._dkappa = dkappa
+		self.step.ds = ds
+		self.step.dkappa = dkappa
