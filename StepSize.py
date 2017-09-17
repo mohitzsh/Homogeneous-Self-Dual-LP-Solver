@@ -4,12 +4,12 @@
 '''
 
 import numpy as np
-
+import util
 '''
 	For any step at any point, find the step size by the heuristic mentioned in Section 4.5, X. Xu et al, A simplified
 	self-dual LP algorithm
 '''
-class StepSize:
+class StepSize(object):
 
 	def __init__(self,curr_pt,step):
 
@@ -57,7 +57,7 @@ class StepSize:
 		return self._alpha_k
 
 	@property 
-	def same_step:
+	def same_step(self):
 		return self._same_step
 
 	@alpha_p.setter
@@ -81,41 +81,59 @@ class StepSize:
 		self._same_step = val
 
 	def compute_step_size(self):
-		keep_x = np.where(self._step.dx <=0)[0]
-		alpha_x = np.min(np.true_divide(self._curr_pt.x[keep_x],self._step.dx[keep_x]))
+		keep_x = np.where(self._step.dx <0)[0]
+		alpha_x = np.min(np.true_divide(-1*self._curr_pt.x[keep_x],self._step.dx[keep_x]))
 
-		keep_s = np.where(self._step.ds <=0)[0]
-		alpha_s = np.min(np.true_divide(self._curr_pt.s[keep_s],self._step.ds[keep_s]))
+		keep_s = np.where(self._step.ds <0)[0]
+		alpha_s = np.min(np.true_divide(-1*self._curr_pt.s[keep_s],self._step.ds[keep_s]))
 
-		alpha_tau = -1*self._curr_pt.tau / self._step.dtau
-		alpha_kappa = -1*self._curr_pt.kappa / self._step.dkappa
 
-		assert(alpha_x>=0)
-		assert(alpha_s>=0)
-		assert(alpha_tau>=0)
-		assert(alpha_kappa >=0)
+		alpha_tau = (-1*self._curr_pt.tau / self._step.dtau) if self._step.dtau < 0 else 1
+		alpha_kappa = (-1*self._curr_pt.kappa / self._step.dkappa) if self._step.dkappa < 0 else 1
+		
 
-		self.alpha_p = self._beta*np.min([alpha_x,alpha_tau,alpha_kappa])
-		self.alpha_d = self._beta*np.min([alpha_s,alpha_tau,alpha_kappa])
+		import pdb; pdb.set_trace()
+		
+		# Assert that these are indeed the maximum step sizes you can take
+		assert(np.all((self._curr_pt.x + alpha_x*self._step.dx) >=0))
+		assert(np.all((self._curr_pt.s + alpha_s*self._step.ds) >=0))
+		assert((self._curr_pt.tau + alpha_tau*self._step.dtau) >=0)
+		assert((self._curr_pt.kappa + alpha_kappa*self._step.dkappa) >=0)
 
-		self.same_step = self.is_same_step
+		# import pdb; pdb.set_trace()
+
+		assert(alpha_x > 0)
+		assert(alpha_s > 0)
+		assert(alpha_tau > 0)
+		assert(alpha_kappa > 0)
+
+		self.alpha_p = self._beta*np.min([alpha_x,alpha_tau,alpha_kappa,1])
+		self.alpha_d = self._beta*np.min([alpha_s,alpha_tau,alpha_kappa,1])
+
+		self.same_step = self.is_same_step()
+
+		# if self.same_step:
+		# 	print "Same Step to be taken"
+		# else:
+		# 	print "Different Steps to be taken"
 
 		# Figure out which step size to take for tau and kappa
 		if not self.same_step:
 
 			# Pick alpha which leads to smaller tau, use the same alpha for kappa
 
-			tau_p = self.curr_pt.tau + self.alpha_p*self.step.dtau
-			tau_d = self.curr_pt.tau + self.alpha_d*self.step.dtau
+			tau_p = self._curr_pt.tau + self.alpha_p*self._step.dtau
+			tau_d = self._curr_pt.tau + self.alpha_d*self._step.dtau
 
 			self.alpha_t = self.alpha_p if tau_p < tau_d else self.alpha_d
 
-			# alpha_k is always same as alpha_t
+			# alpha_k is the other one
 
-			self.alpha_k = self.alpha_t
+			self.alpha_k = self.alpha_p if self.alpha_t == self.alpha_d else self.alpha_d
 
 	def is_same_step(self):
-		if (self.alpha_p > self.alpha_d) and (np.dot(self.curr_pt.s.transpose(),self.step.dx) <= 0) :
+		if (self.alpha_p > self.alpha_d) and (util.dot(self._curr_pt.s,self._step.dx) <= 0) :
 			return False
-		if (self.alpha_p < self.alpha_d) and (np.dot(self.curr_pt.x.transpose(),self.step.ds) <= 0):
+		if (self.alpha_p < self.alpha_d) and (util.dot(self._curr_pt.x,self._step.ds) <= 0):
 			return False
+		return True

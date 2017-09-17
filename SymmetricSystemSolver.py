@@ -3,6 +3,7 @@
 	Email: sharm267@purdue.edu
 '''
 import scipy.sparse as sparse
+import numpy as np
 
 '''
 	Implements solver for Ax = b
@@ -16,17 +17,20 @@ import scipy.sparse as sparse
 	NOTE: K1,K2,K3 are expected to be csc_matrix matrices
 
 '''
-class SymmetricSystemSolver:
+class SymmetricSystemSolver(object):
 
 	def __init__(self,K1,K2,K3,r1,r2):
+
+		# Primary Vas
+		self._u = None
+		self._v = None
+
+		# Helper Vars
 		self.K1 = sparse.csc_matrix(K1)
 		self.K2 = sparse.csc_matrix(K2)
 		self.K3 = sparse.csc_matrix(K3)
 		self.r1 = sparse.csc_matrix(r1)
 		self.r2 = sparse.csc_matrix(r2)
-
-		self._u = None
-		self._v = None
 
 		self.solve()
 
@@ -57,6 +61,6 @@ class SymmetricSystemSolver:
 		v = sparse.linalg.spsolve(M,b,permc_spec="MMD_ATA").reshape((self.K3.shape[0],1))
 		u = D_inv.dot(self.K2.dot(v) - self.r1)
 
-		self._u = u
-		self._v = v
+		self._u = np.asarray(u)
+		self._v = np.asarray(v)
 

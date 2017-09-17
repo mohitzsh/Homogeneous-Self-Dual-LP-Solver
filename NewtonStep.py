@@ -8,42 +8,39 @@ import numpy.linalg as linalg
 import scipy.sparse as sparse
 from SymmetricSystemSolver import SymmetricSystemSolver
 from Step import Step
+import util
 
 '''
 	For a system of non-linear equations, return the newton step.
 '''
-class NewtonStep:
+class NewtonStep(Step):
 
 	def __init__(self,LP,curr_pt,eta,gamma,residual_step=None):
 
-		self.step = Step()
-
-
-		self.LP = LP
-		self.curr_pt = curr_pt
+		self._LP = LP
+		self._curr_pt = curr_pt
 
 		# Add checks for the values of eta and gamma
-		self.eta = eta
-		self.gamma = gamma
+		self._eta = eta
+		self._gamma = gamma
 
 
 
 		# Residuals at current point
-		self.r_p = self.curr_pt.tau*self.LP.b - self.LP.A.dot(self.curr_pt.x)
-		self.r_d = self.curr_pt.tau*self.LP.c - self.LP.A.transpose().dot(self.curr_pt.y) - self.curr_pt.s
+		self._r_p = self._curr_pt.tau*self._LP.b - self._LP.A.dot(self._curr_pt.x)
+		self._r_d = self._curr_pt.tau*self._LP.c - self._LP.A.transpose().dot(self._curr_pt.y) - self._curr_pt.s
 
 
-		self.r_g = self.curr_pt.kappa + np.dot(self.LP.c.transpose(),self.curr_pt.x) - np.dot(self.LP.b.transpose(),self.curr_pt.y)
+		self._r_g = self._curr_pt.kappa + util.dot(self._LP.c,self._curr_pt.x) - util.dot(self._LP.b,self._curr_pt.y)
 
 		# complementarity-gap at current point
-		self.mu = (np.dot(self.curr_pt.x.transpose(),self.curr_pt.s) + self.curr_pt.kappa*self.curr_pt.tau)/(self.LP.shape[1] + 1)
-	
-		self.r_xs = np.dot(-1*np.diag(self.curr_pt.x.transpose()[0]),self.curr_pt.s) + self.gamma*self.mu*np.ones((self.LP.shape[1],1))
-		self.r_tk = -1*self.curr_pt.tau*self.curr_pt.kappa + self.gamma*self.mu
+		self._mu = np.true_divide(util.dot(self._curr_pt.x,self._curr_pt.s) + self._curr_pt.kappa*self._curr_pt.tau,self._LP.shape[1] + 1)
+		self._r_xs = np.dot(-1*np.diag(self._curr_pt.x.transpose()[0]),self._curr_pt.s) + self._gamma*self._mu*np.ones((self._LP.shape[1],1))
+		self._r_tk = -1*self._curr_pt.tau*self._curr_pt.kappa + self._gamma*self._mu
 
 		# Add the residual term
-		self.r_xs = self.r_xs + np.dot(np.diag(residual_step.dx.transpose()[0]),residual_step.ds) if residual_step is not None else self.r_xs
-		self.r_tk = self.r_tk + residual_step.dtau* residual_step.dkappa if residual_step is not None else self.r_tk 
+		self._r_xs = self._r_xs - np.dot(np.diag(residual_step.dx.transpose()[0]),residual_step.ds) if residual_step is not None else self._r_xs
+		self._r_tk = self._r_tk - residual_step.dtau* residual_step.dkappa if residual_step is not None else self._r_tk 
 
 		# This functions calculates all the steps and assign them to class variables
 		self.compute_step()
@@ -56,8 +53,8 @@ class NewtonStep:
 
 	def compute_step(self):
 		
-		X = sparse.diags([self.curr_pt.x.transpose()[0]],[0])
-		S = sparse.diags([self.curr_pt.s.transpose()[0]],[0])
+		X = sparse.diags([self._curr_pt.x.transpose()[0]],[0])
+		S = sparse.diags([self._curr_pt.s.transpose()[0]],[0])
 
 		X_inv  = sparse.linalg.inv(X)
 	
@@ -69,16 +66,16 @@ class NewtonStep:
 
 		'''
 		K1 = (-1*X_inv).dot(S)
-		K2 = self.LP.A.transpose()
-		K3 = self.LP.A
+		K2 = self._LP.A.transpose()
+		K3 = self._LP.A
 
-		r1 = self.LP.c
-		r2 = self.LP.b
+		r1 = self._LP.c
+		r2 = self._LP.b
 
 		sol1 = SymmetricSystemSolver(K1,K2,K3,r1,r2)
 
-		r1 = self.r_d - X_inv.dot(self.r_xs)
-		r2 = self.r_p
+		r1 = self._r_d - X_inv.dot(self._r_xs)
+		r2 = self._r_p
 
 		sol2 = SymmetricSystemSolver(K1,K2,K3,r1,r2)
 
@@ -87,29 +84,30 @@ class NewtonStep:
 		self.calculate_dual_steps(sol1,sol2)
 
 	def calculate_tau_step(self,sol1,sol2):
-		num = self.curr_pt.tau*self.r_g + self.r_tk + self.curr_pt.tau*np.dot(self.LP.c.transpose(),sol2.u) - self.curr_pt.tau*np.dot(self.LP.b.transpose(),sol2.v)
-		den = self.curr_pt.kappa - self.curr_pt.tau*np.dot(self.LP.c.transpose(),sol1.u) + self.curr_pt.tau*np.dot(self.LP.b.transpose(),sol1.v)
+		num = self._curr_pt.tau*self._r_g + self._r_tk + self._curr_pt.tau*util.dot(self._LP.c,sol2.u) - self._curr_pt.tau*util.dot(self._LP.b,sol2.v)
+		den = self._curr_pt.kappa - self._curr_pt.tau*util.dot(self._LP.c,sol1.u) + self._curr_pt.tau*util.dot(self._LP.b,sol1.v)
 
 		d_tau = num / den
 
-		self.step.dtau = d_tau
+		self.dtau = d_tau
 
 	def calculate_primal_steps(self,sol1,sol2):
 
-		dx = sol2.u + sol1.u*self._dtau
-		dy = sol2.v + sol1.v*self._dtau
+		dx = sol2.u + sol1.u*self.dtau
+		dy = sol2.v + sol1.v*self.dtau
 
-		self.step.dx = dx
-		self.step.dy = dy
+		self.dx = dx
+		self.dy = dy
 
 	def calculate_dual_steps(self,sol1,sol2):
-		X = np.diag(self.curr_pt.x.transpose()[0])
-		X_inv = linalg.inv(X)
+		X = sparse.diags([self._curr_pt.x.transpose()[0]],[0])
+		X_inv = sparse.linalg.inv(X)
 
-		S = np.diag(self.curr_pt.s.transpose()[0])
+		S = sparse.diags([self._curr_pt.s.transpose()[0]],[0])
 
-		ds = np.dot(X_inv,(self.r_xs - np.dot(S,self._dx)))
-		dkappa = (self.r_tk - self.curr_pt.kappa*self._dtau)/self.curr_pt.tau
+		ds = X_inv.dot(self._r_xs - S.dot(self.dx))
+		
+		dkappa = (self._r_tk - self._curr_pt.kappa*self.dtau)/self._curr_pt.tau
 
-		self.step.ds = ds
-		self.step.dkappa = dkappa
+		self.ds = ds
+		self.dkappa = dkappa

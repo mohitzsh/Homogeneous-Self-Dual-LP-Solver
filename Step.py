@@ -3,7 +3,7 @@
 	Email: sharm267@purdue.edu
 '''
 
-class Step:
+class Step(object):
 
 	def __init__(self,dx=None,dy=None,ds=None,dtau=None,dkappa=None):
 		self._dx = dx
@@ -34,15 +34,15 @@ class Step:
 
 	@dx.setter
 	def dx(self,val):
-		return self._dx = val
+		self._dx = val
 
 	@dy.setter
 	def dy(self,val):
-		return self._dy = val
+		self._dy = val
 
 	@ds.setter
 	def ds(self,val):
-		return self._ds = val
+		self._ds = val
 
 	@dtau.setter
 	def dtau(self,val):

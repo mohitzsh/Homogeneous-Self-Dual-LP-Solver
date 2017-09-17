@@ -18,7 +18,7 @@ import scipy.sparse as sparse
 		x<= hi 
 		x>= lo
 '''
-class LP():
+class LP(object):
 
 	'''
 	Possible TODOs:
